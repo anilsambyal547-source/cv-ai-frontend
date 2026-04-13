@@ -43,6 +43,31 @@ export async function apiFetch<T>(
   return res.json();
 }
 
+export async function apiBlobFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("access_token");
+    throw new Error("Unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error(`API error ${res.status}`);
+  }
+
+  return res.blob();
+}
+
 export const apiClient = {
   get:    <T>(path: string)                => apiFetch<T>(path),
   post:   <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "POST",   body: JSON.stringify(body) }),

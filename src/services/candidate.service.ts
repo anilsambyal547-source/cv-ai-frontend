@@ -1,4 +1,4 @@
-import { apiFetch } from "./api.client";
+import { apiFetch, apiBlobFetch } from "./api.client";
 import type { CandidateProfile, CandidateInsights, CandidateListItem } from "@/types/candidates";
 
 export const candidateService = {
@@ -9,6 +9,9 @@ export const candidateService = {
 
   get: (id: string) =>
     apiFetch<CandidateProfile>(`/api/candidate/${id}`),
+
+  getCV: (id: string) =>
+    apiBlobFetch(`/api/candidate/${id}/cv`),
 
   insights: (id: string, jobDescription?: string) =>
     apiFetch<CandidateInsights>(`/api/candidate/${id}/insights`, {

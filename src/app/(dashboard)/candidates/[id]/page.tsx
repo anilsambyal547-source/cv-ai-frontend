@@ -7,17 +7,18 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase,
   GraduationCap, Award, Zap, Loader2, Sparkles,
   CheckCircle, AlertCircle, MessageSquare, Users,
-  Eye, Download, X,
+  Eye, Download, X, BookmarkPlus,
 } from "lucide-react";
 import { useCandidate, useInsights } from "@/hooks/useCandidate";
 import { useSimilarCandidates } from "@/hooks/useAnalytics";
+import { useShortlistStore } from "@/stores/shortlistStore";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis,
   ResponsiveContainer, Tooltip,
 } from "recharts";
 import type { WorkExperience } from "@/types/candidates";
 import { useChartTheme } from "@/hooks/useChartTheme";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getResourceUrl } from "@/lib/api-config";
 
 interface GlassCardProps {
@@ -118,10 +119,53 @@ export default function CandidateProfilePage({
   const { id } = use(params);
   const router = useRouter();
   const [showCV, setShowCV] = useState(false);
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [cvLoading, setCvLoading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (cvUrl) URL.revokeObjectURL(cvUrl);
+    };
+  }, [cvUrl]);
+
+  const handleOpenCV = async () => {
+    setShowCV(true);
+    setCvLoading(true);
+    try {
+      const { candidateService } = await import("@/services/candidate.service");
+      const blob = await candidateService.getCV(id);
+      const url = URL.createObjectURL(blob);
+      setCvUrl(url);
+    } catch (err) {
+      console.error("Failed to load CV:", err);
+    } finally {
+      setCvLoading(false);
+    }
+  };
 
   const { profile, loading, error }                                              = useCandidate(id);
   const { insights, loading: insightsLoading, error: insightsError, generate }  = useInsights(id);
   const { data: similar }                                                        = useSimilarCandidates(id);
+  const { add: addToShortlist, remove: removeFromShortlist, has: isShortlisted } = useShortlistStore();
+
+  const handleShortlist = () => {
+    if (!profile) return;
+    if (isShortlisted(profile.id)) {
+      removeFromShortlist(profile.id);
+    } else {
+      addToShortlist({
+        id:               profile.id,
+        name:             profile.name,
+        email:            profile.email,
+        skills:           profile.skills.join(", "),
+        years_experience: profile.years_experience,
+        seniority:        profile.seniority,
+        location:         profile.location,
+        industry:         profile.industry,
+        addedAt:          new Date().toISOString(),
+      });
+    }
+  };
 
   if (loading) return <ProfileSkeleton />;
 
@@ -223,11 +267,24 @@ export default function CandidateProfilePage({
               
               {/* Viewer */}
               <div className="flex-1 bg-neutral-900 overflow-hidden flex items-center justify-center">
-                <iframe 
-                  src={getResourceUrl(`/api/candidate/${id}/cv#toolbar=1&navpanes=0&scrollbar=1`)}
-                  className="w-full h-full border-none"
-                  title="PDF Viewer"
-                />
+                {cvLoading ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading CV...</p>
+                  </div>
+                ) : cvUrl ? (
+                  <iframe 
+                    src={`${cvUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                    className="w-full h-full border-none"
+                    title="PDF Viewer"
+                  />
+                ) : (
+                  <div className="text-center p-8">
+                    <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-4" />
+                    <p className="text-sm text-foreground">Failed to load CV</p>
+                    <p className="text-xs text-muted-foreground mt-2">The file might be missing or inaccessible.</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -293,13 +350,24 @@ export default function CandidateProfilePage({
             <div className="flex items-center gap-2">
               {profile.has_file && (
                 <button
-                  onClick={() => setShowCV(true)}
+                  onClick={handleOpenCV}
                   className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-foreground font-medium transition-all"
                 >
-                  <Eye strokeWidth={1.5} className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  {cvLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye strokeWidth={1.5} className="w-3.5 h-3.5 text-teal-500" />}
                   View Original CV
                 </button>
               )}
+              <button
+                onClick={handleShortlist}
+                className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-xl transition-all font-medium border"
+                style={isShortlisted(profile.id) 
+                  ? { color: "#4ade80", borderColor: "rgba(74,222,128,0.25)", background: "rgba(74,222,128,0.08)" } 
+                  : { color: "rgba(148,163,184,0.8)", borderColor: "rgba(148,163,184,0.1)", background: "rgba(255,255,255,0.04)" }
+                }
+              >
+                <BookmarkPlus strokeWidth={1.5} className="w-3.5 h-3.5" />
+                {isShortlisted(profile.id) ? "Shortlisted" : "Shortlist"}
+              </button>
               <button
                 onClick={() => generate()}
                 disabled={insightsLoading}

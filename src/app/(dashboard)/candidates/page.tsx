@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Search, SlidersHorizontal, Download,
   BookmarkPlus, User, Mail, MapPin, Briefcase,
   GraduationCap, AlertTriangle, RefreshCw, Inbox,
+  Eye, X,
 } from "lucide-react";
 import { useCandidateList } from "@/hooks/useCandidate";
 import { useShortlistStore } from "@/stores/shortlistStore";
 import type { CandidateListItem } from "@/types/candidates";
+import { getResourceUrl } from "@/lib/api-config";
 
 // ── Quality Badge ─────────────────────────────────────────────────────────────
 function QualityBadge({ label }: { label: string }) {
@@ -36,14 +38,17 @@ function CandidateGridCard({
   candidate,
   index,
   onView,
+  onViewCV,
   onShortlist,
   isShortlisted,
 }: {
   candidate:    CandidateListItem;
   index:        number;
   onView:       (id: string) => void;
+  onViewCV:     (c: CandidateListItem) => void;
   onShortlist:  (c: CandidateListItem) => void;
   isShortlisted: boolean;
+  cvLoading?:    boolean;
 }) {
   const skills = candidate.skills
     ? candidate.skills.split(",").map((s) => s.trim()).filter(Boolean)
@@ -84,18 +89,26 @@ function CandidateGridCard({
       {/* Header */}
       <div className="flex items-start gap-3">
         <div
-          className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-sm font-bold"
+          onClick={(e) => { e.stopPropagation(); onViewCV(candidate); }}
+          className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer hover:ring-2 hover:ring-teal-500/50 transition-all active:scale-95"
           style={{
             background: "linear-gradient(135deg, rgba(20,184,166,0.2) 0%, rgba(59,130,246,0.2) 100%)",
             border: "1px solid rgba(148,163,184,0.14)",
             color: "rgba(226,232,240,0.9)",
           }}
+          title="Click to view original CV"
         >
           {initials}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-foreground truncate">{candidate.name}</h3>
+            <h3 
+              onClick={(e) => { e.stopPropagation(); onViewCV(candidate); }}
+              className="text-sm font-semibold text-foreground truncate cursor-pointer hover:text-teal-400 transition-colors"
+              title="Click to view original CV"
+            >
+              {candidate.name}
+            </h3>
             {candidate.quality_label && <QualityBadge label={candidate.quality_label} />}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
@@ -159,7 +172,7 @@ function CandidateGridCard({
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+      <div className="flex items-center gap-2 mt-4 transition-all duration-200">
         <button
           onClick={() => onView(candidate.id)}
           className="btn-teal text-[11px]"
@@ -184,11 +197,39 @@ function CandidateGridCard({
 export default function CandidatesPage() {
   const router  = useRouter();
   const { candidates, loading, error, total, refetch } = useCandidateList(50, 0);
-  const { add: addToShortlist, has: isShortlisted }    = useShortlistStore();
+  const { add: addToShortlist, remove: removeFromShortlist, has: isShortlisted } = useShortlistStore();
 
   const [search,     setSearch]     = useState("");
   const [filterQual, setFilterQual] = useState<string>("all");
   const [sortBy,     setSortBy]     = useState<"name" | "experience" | "quality">("quality");
+
+  // CV preview state
+  const [showCV, setShowCV] = useState(false);
+  const [cvCandidate, setCvCandidate] = useState<CandidateListItem | null>(null);
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [cvLoading, setCvLoading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (cvUrl) URL.revokeObjectURL(cvUrl);
+    };
+  }, [cvUrl]);
+
+  const handleViewCV = useCallback(async (c: CandidateListItem) => {
+    setCvCandidate(c);
+    setShowCV(true);
+    setCvLoading(true);
+    try {
+      const { candidateService } = await import("@/services/candidate.service");
+      const blob = await candidateService.getCV(c.id);
+      const url = URL.createObjectURL(blob);
+      setCvUrl(url);
+    } catch (err) {
+      console.error("Failed to load CV:", err);
+    } finally {
+      setCvLoading(false);
+    }
+  }, []);
 
   // Filter + sort locally
   const filtered = candidates
@@ -236,6 +277,85 @@ export default function CandidatesPage() {
 
   return (
     <div className="space-y-6">
+
+      {/* PDF View Modal */}
+      <AnimatePresence>
+        {showCV && cvCandidate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8"
+          >
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setShowCV(false)}
+            />
+            
+            {/* Modal Body */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full h-full max-w-5xl bg-background rounded-3xl border border-white/10 overflow-hidden flex flex-col"
+              style={{ boxShadow: "0 24px 64px -12px rgba(0,0,0,0.5)" }}
+            >
+              {/* Tool bar */}
+              <div className="flex items-center justify-between px-6 py-4 bg-white/5 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20">
+                    <Eye className="w-4 h-4 text-teal-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Original CV</h2>
+                    <p className="text-[10px] text-muted-foreground">{cvCandidate.name}.pdf</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <a 
+                    href={getResourceUrl(`/api/candidate/${cvCandidate.id}/cv`)}
+                    download
+                    className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </a>
+                  <button 
+                    onClick={() => setShowCV(false)}
+                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <X className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Viewer */}
+              <div className="flex-1 bg-neutral-900 overflow-hidden flex items-center justify-center">
+                {cvLoading ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <RefreshCw className="w-8 h-8 text-teal-500 animate-spin" />
+                    <p className="text-sm text-muted-foreground">Loading CV...</p>
+                  </div>
+                ) : cvUrl ? (
+                  <iframe 
+                    src={`${cvUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                    className="w-full h-full border-none"
+                    title="PDF Viewer"
+                  />
+                ) : (
+                  <div className="text-center p-8">
+                    <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-4" />
+                    <p className="text-sm text-foreground">Failed to load CV</p>
+                    <p className="text-xs text-muted-foreground mt-2">The file might be missing or inaccessible.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -391,18 +511,26 @@ export default function CandidatesPage() {
               candidate={c}
               index={i}
               onView={(id) => router.push("/candidates/" + id)}
-              onShortlist={(c) => addToShortlist({
-                id:               c.id,
-                name:             c.name,
-                email:            c.email,
-                skills:           c.skills,
-                years_experience: c.years_experience,
-                seniority:        c.seniority,
-                location:         c.location,
-                industry:         c.industry,
-                addedAt:          new Date().toISOString(),
-              })}
+              onViewCV={handleViewCV}
+              onShortlist={(c) => {
+                if (isShortlisted(c.id)) {
+                  removeFromShortlist(c.id);
+                } else {
+                  addToShortlist({
+                    id:               c.id,
+                    name:             c.name,
+                    email:            c.email,
+                    skills:           c.skills,
+                    years_experience: c.years_experience,
+                    seniority:        c.seniority,
+                    location:         c.location,
+                    industry:         c.industry,
+                    addedAt:          new Date().toISOString(),
+                  });
+                }
+              }}
               isShortlisted={isShortlisted(c.id)}
+              cvLoading={cvLoading && cvCandidate?.id === c.id}
             />
           ))}
         </motion.div>
