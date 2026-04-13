@@ -14,8 +14,8 @@ const getApiUrl = (): string => {
     return `https://${window.location.host}`; // Fallback for reverse-proxy setups
   }
 
-  // Priority 3: Local development default
-  return "http://localhost:8000";
+  // Priority 3: Final fallback to production backend (Ensures zero-config deployment)
+  return "https://cv-ai-backend-0mgm.onrender.com";
 };
 
 export const API_BASE_URL = getApiUrl();
