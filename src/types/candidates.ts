@@ -27,6 +27,7 @@ export interface CandidateProfile {
   quality_label?:   "excellent" | "good" | "fair" | "poor";
   quality_issues?:  string[];
   needs_review?:    boolean;
+  stage?:           string;
 }
 
 export interface CandidateListItem {
@@ -45,6 +46,7 @@ export interface CandidateListItem {
   quality_label:    "excellent" | "good" | "fair" | "poor";
   quality_issues:   string[];
   needs_review:     boolean;
+  stage?:           string;
 }
 
 export interface CandidateInsights {

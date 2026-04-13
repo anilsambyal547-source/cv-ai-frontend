@@ -12,6 +12,7 @@ import {
 import { useCandidate, useInsights } from "@/hooks/useCandidate";
 import { useSimilarCandidates } from "@/hooks/useAnalytics";
 import { useShortlistStore } from "@/stores/shortlistStore";
+import { candidateService } from "@/services/candidate.service";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis,
   ResponsiveContainer, Tooltip,
@@ -138,12 +139,13 @@ export default function CandidateProfilePage({
       setCvUrl(url);
     } catch (err) {
       console.error("Failed to load CV:", err);
+      // We don't throw, we just let cvUrl stay null so the modal shows the error state
     } finally {
       setCvLoading(false);
     }
   };
 
-  const { profile, loading, error }                                              = useCandidate(id);
+  const { profile, loading, error, refetch } = useCandidate(id);
   const { insights, loading: insightsLoading, error: insightsError, generate }  = useInsights(id);
   const { data: similar }                                                        = useSimilarCandidates(id);
   const { add: addToShortlist, remove: removeFromShortlist, has: isShortlisted } = useShortlistStore();
@@ -164,6 +166,10 @@ export default function CandidateProfilePage({
         industry:         profile.industry,
         addedAt:          new Date().toISOString(),
       });
+      // Sync to pipeline and refresh local state
+      candidateService.updateStage(profile.id, "Shortlisted")
+        .then(() => refetch())
+        .catch(console.error);
     }
   };
 
@@ -249,12 +255,12 @@ export default function CandidateProfilePage({
                 
                 <div className="flex items-center gap-2">
                   <a 
-                    href={getResourceUrl(`/api/candidate/${id}/cv`)}
+                    href={getResourceUrl(`/api/candidate/${encodeURIComponent(id)}/cv`)}
                     download
                     className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Download
+                    Download PDF
                   </a>
                   <button 
                     onClick={() => setShowCV(false)}
@@ -300,7 +306,14 @@ export default function CandidateProfilePage({
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold text-foreground tracking-tight">{profile.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-foreground tracking-tight">{profile.name}</h1>
+              {profile.stage && (
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 capitalize font-medium">
+                  {profile.stage}
+                </span>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2">
 
               {profile.email && (

@@ -167,6 +167,21 @@ export function RecentMatches({ candidates = [], loading }: Props) {
                     <span className="text-[11px]" style={{ color: "rgba(100,116,139,0.7)" }}>
                       {m.years_experience}y
                     </span>
+                    {m.stage && (
+                      <>
+                        <span style={{ color: "rgba(100,116,139,0.3)" }}>·</span>
+                        <span 
+                          className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
+                          style={{ 
+                            background: m.stage === "Hired" ? "rgba(34,197,94,0.1)" : "rgba(148,163,184,0.1)",
+                            color: m.stage === "Hired" ? "#4ade80" : "rgba(226,232,240,0.6)",
+                            border: `1px solid ${m.stage === "Hired" ? "rgba(34,197,94,0.2)" : "rgba(148,163,184,0.2)"}`
+                          }}
+                        >
+                          {m.stage}
+                        </span>
+                      </>
+                    )}
                   </div>
                   {skills.length > 0 && (
                     <div className="flex gap-1 mt-1 flex-wrap">

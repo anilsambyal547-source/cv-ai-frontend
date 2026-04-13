@@ -24,6 +24,7 @@ interface AnalyticsData {
   top_skills:           { skill: string; count: number }[];
   seniority_dist:       Record<string, number>;
   industry_dist:        Record<string, number>;
+  stage_dist:           Record<string, number>;
   experience_histogram: { range: string; count: number }[];
 }
 
@@ -328,6 +329,7 @@ export default function AnalyticsPage() {
   const topSkills     = data?.top_skills ?? [];
   const industryData  = Object.entries(data?.industry_dist  ?? {}).map(([name, value]) => ({ name, value }));
   const seniorityData = Object.entries(data?.seniority_dist ?? {}).map(([name, value]) => ({ name, value }));
+  const stageData     = Object.entries(data?.stage_dist     ?? {}).map(([name, value]) => ({ name, value }));
   const histogramData = data?.experience_histogram ?? [];
 
   const activeFilterCount = [
@@ -580,45 +582,48 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Top Skills ranked */}
-            <GlassCard title="Top Skills — Ranked by Frequency" subtitle="All skills found across every CV in your database" delay={0.15}>
-              {loading ? <Skeleton className="h-48" /> : topSkills.length === 0 ? (
-                <div className="h-32 flex items-center justify-center"><p className="text-xs text-muted-foreground">No skills data — upload CVs first</p></div>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {topSkills.map((s, i) => {
-                    const pct = Math.round((s.count / (topSkills[0]?.count ?? 1)) * 100);
-                    return (
-                      <div key={s.skill} className="flex items-center gap-3">
-                        <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{i + 1}</span>
-                        <div className="flex-1 space-y-0.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-foreground">{s.skill}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground">{s.count} candidates</span>
-                              <button
-                                onClick={() => router.push("/search?q=" + encodeURIComponent(s.skill))}
-                                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-                              >
-                                Search →
-                              </button>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <GlassCard title="Top Skills — Ranked by Frequency" subtitle="All skills found across every CV" delay={0.15}>
+                {loading ? <Skeleton className="h-48" /> : topSkills.length === 0 ? (
+                  <div className="h-32 flex items-center justify-center"><p className="text-xs text-muted-foreground">No skills data</p></div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {topSkills.slice(0, 10).map((s, i) => {
+                      const pct = Math.round((s.count / (topSkills[0]?.count ?? 1)) * 100);
+                      return (
+                        <div key={s.skill} className="flex items-center gap-3">
+                          <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{i + 1}</span>
+                          <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-foreground">{s.skill}</span>
+                              <span className="text-[10px] text-muted-foreground">{s.count}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: pct + "%", background: COLORS[i % COLORS.length] }} />
                             </div>
                           </div>
-                          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: pct + "%" }}
-                              transition={{ duration: 0.6, delay: i * 0.02 }}
-                              className="h-full rounded-full"
-                              style={{ background: "linear-gradient(90deg, " + COLORS[i % COLORS.length] + ", " + COLORS[(i + 1) % COLORS.length] + ")" }}
-                            />
-                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </GlassCard>
+                      );
+                    })}
+                  </div>
+                )}
+              </GlassCard>
+
+              <GlassCard title="Pipeline Stage Distribution" subtitle="Candidates by recruitment stage" delay={0.2}>
+                {loading ? <Skeleton className="h-48" /> : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart layout="vertical" data={stageData} margin={{ top: 0, right: 30, bottom: 0, left: 40 }}>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" tick={{ fill: t.text, fontSize: 10 }} axisLine={false} tickLine={false} width={80} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="value" name="Candidates" radius={[0, 4, 4, 0]}>
+                        {stageData.map((_, i) => <Cell key={i} fill={COLORS[(i + 4) % COLORS.length]} fillOpacity={0.85} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </GlassCard>
+            </div>
           </motion.div>
         )}
 

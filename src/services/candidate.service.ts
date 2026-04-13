@@ -8,15 +8,25 @@ export const candidateService = {
     ),
 
   get: (id: string) =>
-    apiFetch<CandidateProfile>(`/api/candidate/${id}`),
+    apiFetch<CandidateProfile>(`/api/candidate/${encodeURIComponent(id)}`),
 
   getCV: (id: string) =>
-    apiBlobFetch(`/api/candidate/${id}/cv`),
+    apiBlobFetch(`/api/candidate/${encodeURIComponent(id)}/cv`),
 
   insights: (id: string, jobDescription?: string) =>
-    apiFetch<CandidateInsights>(`/api/candidate/${id}/insights`, {
+    apiFetch<CandidateInsights>(`/api/candidate/${encodeURIComponent(id)}/insights`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ job_description: jobDescription ?? null }),
     }),
+
+  updateStage: (id: string, stage: string) =>
+    apiFetch<{ message: string; stage: string }>(
+      `/api/candidate/${encodeURIComponent(id)}/stage`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage }),
+      }
+    ),
 };

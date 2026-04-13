@@ -10,6 +10,7 @@ import {
 import type { ShortlistedCandidate } from "@/stores/shortlistStore";
 import type { EmailPayload } from "@/types/email";
 import { emailService } from "@/services/email.service";
+import { candidateService } from "@/services/candidate.service";
 
 interface Props {
   candidates: ShortlistedCandidate[];
@@ -98,6 +99,8 @@ export function EmailModal({ candidates, onClose, onSent }: Props) {
   const [showCcBcc,     setShowCcBcc]     = useState(false);
   const [activeTab,     setActiveTab]     = useState<"compose" | "preview">("compose");
   const [preview,       setPreview]       = useState<ShortlistedCandidate>(candidates[0]);
+  const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null);
+  const [statusInfo, setStatusInfo] = useState<string | null>(null);
 
   const templateRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -149,6 +152,7 @@ export function EmailModal({ candidates, onClose, onSent }: Props) {
   function applyTemplate(t: typeof TEMPLATES[0]) {
     setSubject(t.subject);
     setBody(t.body + signature);
+    setAppliedTemplate(t.label);
     setShowTemplate(false);
   }
 
@@ -189,12 +193,27 @@ export function EmailModal({ candidates, onClose, onSent }: Props) {
     setSending(true);
     setError(null);
 
+    // Map template to pipeline stage
+    const TEMPLATE_STAGE_MAP: Record<string, string> = {
+      "Initial Outreach":              "Outreach",
+      "Application Confirmation":      "Applied",
+      "Application Received — No Action": "Rejected",
+      "Interview Invitation":          "Interview",
+      "Request for Information":       "Screening",
+      "Holding — Process Delayed":     "On Hold",
+      "Follow Up":                     "Outreach",
+      "Rejection (Generic)":           "Rejected",
+      "Rejection (Personalised)":       "Rejected",
+      "Offer Letter Intro":            "Offer"
+    };
+
     const scheduledTime = scheduleDate && scheduleTime
       ? new Date(scheduleDate + "T" + scheduleTime).toISOString()
       : undefined;
 
     try {
-      const results = await Promise.allSettled(
+      // Send emails
+      const emailResults = await Promise.allSettled(
         candidates.map((c) =>
           emailService.send({
             candidate_id:    c.id,
@@ -207,21 +226,37 @@ export function EmailModal({ candidates, onClose, onSent }: Props) {
         )
       );
 
-      const failed = results.filter((r) => r.status === "rejected").length;
+      // Successfully sent candidates
+      const successIds = emailResults
+        .map((r, i) => r.status === "fulfilled" ? candidates[i].id : null)
+        .filter(Boolean) as string[];
+
+      // If template was used, update pipeline stage for successful sends
+      if (appliedTemplate && TEMPLATE_STAGE_MAP[appliedTemplate] && successIds.length > 0) {
+        const stage = TEMPLATE_STAGE_MAP[appliedTemplate];
+        await Promise.allSettled(
+          successIds.map(id => candidateService.updateStage(id, stage))
+        );
+      }
+
+      const failed = emailResults.filter((r) => r.status === "rejected").length;
       if (failed > 0) {
         setError(failed + " email(s) failed to send.");
       } else {
         setSent(true);
         localStorage.removeItem("cv_ai_email_draft");
+        setStatusInfo("Done!");
         setTimeout(() => {
           onSent(candidates.map((c) => c.id));
           onClose();
         }, 1500);
       }
-    } catch {
-      setError("Failed to send emails. Please try again.");
+    } catch (err: any) {
+      console.error("Email send error:", err);
+      setError(err.message || "Failed to send emails. Please try again.");
     } finally {
       setSending(false);
+      setStatusInfo(null);
     }
   }
 
@@ -682,6 +717,11 @@ export function EmailModal({ candidates, onClose, onSent }: Props) {
               disabled={sending || sent || !subject.trim() || !body.trim()}
               className="flex-1 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] disabled:opacity-50 text-white text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(59,130,246,0.3)]"
             >
+              {statusInfo && (
+                <span className="text-[10px] text-blue-400 font-mono italic mr-2 animate-pulse">
+                  {statusInfo}
+                </span>
+              )}
               {sent ? (
                 <>{isScheduled ? "✓ Scheduled!" : "✓ Sent!"}</>
               ) : sending ? (

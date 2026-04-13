@@ -10,6 +10,7 @@ export interface ShortlistedCandidate {
   seniority?:       string;
   location?:        string;
   industry?:        string;
+  stage?:           string;
   addedAt:          string;
 }
 

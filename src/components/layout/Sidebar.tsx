@@ -18,6 +18,7 @@ const HIDDEN_X   = -(DRAWER_W - GRAB_W); // translateX when closed → -222px
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV = [
   { href: "/",           label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/pipeline",   label: "Pipeline",   icon: BarChart2       },
   { href: "/upload",     label: "Upload",     icon: Upload           },
   { href: "/candidates", label: "Candidates", icon: Users            },
   { href: "/search",     label: "Search",     icon: Search           },

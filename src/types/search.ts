@@ -24,6 +24,7 @@ export interface Candidate {
     seniority:        string;
     industry?:        string;
     summary?:         string;
+    stage?:           string;
   };
   fit_breakdown?: {
     semantic:      number;

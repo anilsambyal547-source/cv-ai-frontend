@@ -22,6 +22,7 @@ export interface TopCandidate {
     seniority?:       string;
     location?:        string;
     industry?:        string;
+    stage?:           string;
   };
 }
 

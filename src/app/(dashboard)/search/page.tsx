@@ -10,6 +10,7 @@ import { FilterSidebar } from "@/components/search/FilterSidebar";
 import { CandidateCard } from "@/components/search/CandidateCard";
 import { useSearch }     from "@/hooks/useSearch";
 import { useShortlistStore } from "@/stores/shortlistStore";
+import { candidateService } from "@/services/candidate.service";
 import type { SearchFilters } from "@/types/search";
 
 const DEFAULT_FILTERS: Partial<SearchFilters> = {
@@ -87,8 +88,17 @@ function SearchPageInner() {
       seniority:        candidate.metadata.seniority,
       location:         candidate.metadata.location,
       industry:         candidate.metadata.industry,
+      stage:            candidate.metadata.stage,
       addedAt:          new Date().toISOString(),
     });
+
+    // Sync to pipeline
+    candidateService.updateStage(candidate.id, "Shortlisted")
+      .then(() => {
+        // Update local results state so badge reflects change
+        search(filters); // Re-run search to get fresh metadata
+      })
+      .catch(console.error);
 
     // Flash animation
     setJustAdded((prev) => {
@@ -103,7 +113,7 @@ function SearchPageInner() {
         return next;
       });
     }, 2000);
-  }, [results, addToShortlist]);
+  }, [results, addToShortlist, filters, search]);
 
   return (
     <div className="space-y-5">

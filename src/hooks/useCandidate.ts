@@ -8,9 +8,8 @@ export function useCandidate(id: string | null) {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetch = useCallback(() => {
     if (!id) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     candidateService
@@ -20,7 +19,11 @@ export function useCandidate(id: string | null) {
       .finally(() => setLoading(false));
   }, [id]);
 
-  return { profile, loading, error };
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { profile, loading, error, refetch: fetch };
 }
 
 // ── AI Insights ───────────────────────────────────────────────────────────────

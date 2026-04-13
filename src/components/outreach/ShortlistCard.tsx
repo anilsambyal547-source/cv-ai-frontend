@@ -66,7 +66,14 @@ export function ShortlistCard({
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">{candidate.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground truncate">{candidate.name}</h3>
+            {candidate.stage && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 capitalize whitespace-nowrap">
+                {candidate.stage}
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
             {candidate.email && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground truncate max-w-[180px]">

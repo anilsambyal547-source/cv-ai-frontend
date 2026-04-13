@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCandidateList } from "@/hooks/useCandidate";
 import { useShortlistStore } from "@/stores/shortlistStore";
+import { candidateService } from "@/services/candidate.service";
 import type { CandidateListItem } from "@/types/candidates";
 import { getResourceUrl } from "@/lib/api-config";
 
@@ -109,7 +110,14 @@ function CandidateGridCard({
             >
               {candidate.name}
             </h3>
-            {candidate.quality_label && <QualityBadge label={candidate.quality_label} />}
+            <div className="flex gap-1.5 flex-wrap">
+              {candidate.quality_label && <QualityBadge label={candidate.quality_label} />}
+              {candidate.stage && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 capitalize whitespace-nowrap">
+                  {candidate.stage}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
             {candidate.seniority && (
@@ -224,8 +232,9 @@ export default function CandidatesPage() {
       const blob = await candidateService.getCV(c.id);
       const url = URL.createObjectURL(blob);
       setCvUrl(url);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load CV:", err);
+      // We don't throw, we just let cvUrl stay null so the modal shows the error state
     } finally {
       setCvLoading(false);
     }
@@ -315,12 +324,12 @@ export default function CandidatesPage() {
                 
                 <div className="flex items-center gap-2">
                   <a 
-                    href={getResourceUrl(`/api/candidate/${cvCandidate.id}/cv`)}
+                    href={getResourceUrl(`/api/candidate/${encodeURIComponent(cvCandidate.id)}/cv`)}
                     download
                     className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    Download
+                    Download PDF
                   </a>
                   <button 
                     onClick={() => setShowCV(false)}
@@ -525,8 +534,16 @@ export default function CandidatesPage() {
                     seniority:        c.seniority,
                     location:         c.location,
                     industry:         c.industry,
+                    stage:            c.stage,
                     addedAt:          new Date().toISOString(),
                   });
+                  // Sync to pipeline and local state
+                  candidateService.updateStage(c.id, "Shortlisted")
+                    .then(() => {
+                      // Update local state so badge reflects change
+                      refetch();
+                    })
+                    .catch(console.error);
                 }
               }}
               isShortlisted={isShortlisted(c.id)}

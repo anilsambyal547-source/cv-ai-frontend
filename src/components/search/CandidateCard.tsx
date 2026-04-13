@@ -134,7 +134,14 @@ export function CandidateCard({
               <h3 className="text-sm font-semibold text-foreground truncate">
                 {m.name ?? "Unknown"}
               </h3>
-              <QualityBadge label={qualityLabel} needsReview={needsReview} />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <QualityBadge label={qualityLabel} needsReview={needsReview} />
+                {m.stage && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400 capitalize whitespace-nowrap">
+                    {m.stage}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
